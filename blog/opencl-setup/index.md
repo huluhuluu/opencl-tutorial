@@ -5,8 +5,9 @@ lastmod: 2026-04-01T15:00:00+08:00
 draft: false
 description: "OpenCL 开发环境配置指南"
 slug: "opencl-setup"
-tags: ["OpenCL", "GPU", "环境配置"]
-categories: ["OpenCL教程"]
+tags: ["opencl"]
+categories: ["opencl"]
+
 comments: true
 math: true
 ---
@@ -28,9 +29,9 @@ clinfo
 ```
 
 支持的硬件厂商：
-- NVIDIA (GeForce, Quadro, Tesla)
-- AMD (Radeon, Instinct)
-- Intel (HD Graphics, Arc, Xeon)
+- NVIDIA (GeForce,  Quadro,  Tesla)
+- AMD (Radeon,  Instinct)
+- Intel (HD Graphics,  Arc,  Xeon)
 - Apple (M1/M2/M3 系列)
 
 ## 2. 安装驱动和运行时
@@ -157,3 +158,4 @@ sudo usermod -aG video $USER
 - [NVIDIA CUDA](https://developer.nvidia.com/cuda-zone)
 - [AMD ROCm](https://rocm.docs.amd.com/)
 - [Intel OpenCL](https://www.intel.com/content/www/us/en/developer/tools/opencl-sdk/overview.html)
+

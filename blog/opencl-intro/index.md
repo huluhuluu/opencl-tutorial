@@ -5,8 +5,9 @@ lastmod: 2026-04-01T15:00:00+08:00
 draft: false
 description: "OpenCL 基本概念与架构介绍"
 slug: "opencl-intro"
-tags: ["OpenCL", "GPU", "并行计算"]
-categories: ["OpenCL 教程"]
+tags: ["opencl"]
+categories: ["opencl"]
+
 comments: true
 math: true
 ---
@@ -88,17 +89,17 @@ NDRange (索引空间)
 int main() {
     // 获取平台
     cl_platform_id platform;
-    clGetPlatformIDs(1, &platform, NULL);
+    clGetPlatformIDs(1,  &platform,  NULL);
 
     // 获取设备
     cl_device_id device;
-    clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
+    clGetDeviceIDs(platform,  CL_DEVICE_TYPE_GPU,  1,  &device,  NULL);
 
     // 创建上下文
-    cl_context context = clCreateContext(NULL, 1, &device, NULL, NULL, NULL);
+    cl_context context = clCreateContext(NULL,  1,  &device,  NULL,  NULL,  NULL);
 
     // 创建命令队列
-    cl_command_queue queue = clCreateCommandQueue(context, device, 0, NULL);
+    cl_command_queue queue = clCreateCommandQueue(context,  device,  0,  NULL);
 
     printf("OpenCL initialized successfully!\n");
 
@@ -114,3 +115,4 @@ int main() {
 
 - [OpenCL 官方文档](https://www.khronos.org/opencl/)
 - [Intel OpenCL SDK](https://www.intel.com/content/www/us/en/developer/tools/opencl-sdk/overview.html)
+

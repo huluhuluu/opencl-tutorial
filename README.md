@@ -1,6 +1,6 @@
 # OPENCL_TUTORIAL
 
-OpenCL (Open Computing Language) 异构计算教程，从入门到实战。
+OpenCL (Open Computing Language) 异构计算tutorial，从入门到实战。
 
 ## 目录
 
@@ -30,3 +30,4 @@ code/
 - [OpenCL 官方文档](https://www.khronos.org/opencl/)
 - [Intel OpenCL SDK](https://www.intel.com/content/www/us/en/developer/tools/opencl-sdk/overview.html)
 - [NVIDIA CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit)
+
