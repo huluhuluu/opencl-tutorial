@@ -1,42 +1,40 @@
 ---
-title: "Hello OpenCL"
+title: "从 Vector Add 到 GEMM 的第一套 OpenCL 程序"
 date: 2026-04-01T15:30:00+08:00
-lastmod: 2026-04-01T15:30:00+08:00
+lastmod: 2026-04-15T21:20:00+08:00
 draft: false
-description: "第一个 OpenCL 程序"
+description: "先用最小 vector add 跑通 OpenCL，再把思路迁移到 GEMM"
 slug: "hello-opencl"
 tags: ["opencl"]
 categories: ["opencl"]
-
 comments: true
 math: true
 ---
 
-# Hello OpenCL
+# 从 Vector Add 到 GEMM 的第一套 OpenCL 程序
 
-本文通过一个简单的向量加法示例，介绍 OpenCL 程序的基本结构。
+当前目录里已经有一个最小的 `vector_add.cl`。这正好适合作为第一步，因为 OpenCL 真正难的往往不是数学，而是“Host 侧有没有把一次 kernel 调起来”。
 
-## 1. OpenCL 程序流程
+## 1. 为什么不一上来就写 GEMM
 
-```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│  获取平台设备  │ -> │  创建上下文队列  │ -> │  编译 Kernel   │
-└─────────────┘    └─────────────┘    └─────────────┘
-                                              │
-                                              v
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   读取结果    │ <- │   执行 Kernel   │ <- │  创建缓冲区    │
-└─────────────┘    └─────────────┘    └─────────────┘
-```
+因为 GEMM 会同时引入太多变量：
 
-## 2. Kernel 代码
+- 二维 NDRange
+- 更复杂的索引
+- local memory 分块
+- 性能测试和正确性验证
+
+如果你连最小的一维 kernel 都没跑通，直接上 GEMM 很容易把问题混在一起。
+
+## 2. 第一阶段: 跑通最小 vector add
+
+当前的最小 kernel 逻辑就是：
 
 ```c
-// vector_add.cl
 __kernel void vector_add(
-    __global const float *a, 
-    __global const float *b, 
-    __global float *c, 
+    __global const float *a,
+    __global const float *b,
+    __global float *c,
     const unsigned int n
 ) {
     int id = get_global_id(0);
@@ -46,153 +44,82 @@ __kernel void vector_add(
 }
 ```
 
-## 3. Host 代码
+这个例子足够教会你三件事：
 
-```c
-// main.c
-#include <stdio.h>
-#include <stdlib.h>
-#include <CL/cl.h>
+- kernel 参数怎么传。
+- `global_id` 怎么映射到数据索引。
+- 输入输出 buffer 怎么在 Host 和 Device 间流动。
 
-#define MAX_SOURCE_SIZE (0x100000)
+## 3. Host 侧要做的事情
 
-int main() {
-    // 1. 获取平台和设备
-    cl_platform_id platform;
-    clGetPlatformIDs(1,  &platform,  NULL);
-    
-    cl_device_id device;
-    clGetDeviceIDs(platform,  CL_DEVICE_TYPE_GPU,  1,  &device,  NULL);
-    
-    // 2. 创建上下文和命令队列
-    cl_context context = clCreateContext(NULL,  1,  &device,  NULL,  NULL,  NULL);
-    cl_command_queue queue = clCreateCommandQueue(context,  device,  0,  NULL);
-    
-    // 3. 加载和编译 Kernel
-    FILE *fp = fopen("vector_add.cl",  "r");
-    char *source_str = (char*)malloc(MAX_SOURCE_SIZE);
-    size_t source_size = fread(source_str,  1,  MAX_SOURCE_SIZE,  fp);
-    fclose(fp);
-    
-    cl_program program = clCreateProgramWithSource(context,  1,  
-        (const char**)&source_str,  &source_size,  NULL);
-    clBuildProgram(program,  1,  &device,  NULL,  NULL,  NULL);
-    cl_kernel kernel = clCreateKernel(program,  "vector_add",  NULL);
-    
-    // 4. 准备数据
-    const int N = 1024;
-    float *a = (float*)malloc(N * sizeof(float));
-    float *b = (float*)malloc(N * sizeof(float));
-    float *c = (float*)malloc(N * sizeof(float));
-    
-    for (int i = 0; i < N; i++) {
-        a[i] = i;
-        b[i] = i * 2;
-    }
-    
-    // 5. 创建缓冲区
-    cl_mem buf_a = clCreateBuffer(context,  CL_MEM_READ_ONLY,  N * sizeof(float),  NULL,  NULL);
-    cl_mem buf_b = clCreateBuffer(context,  CL_MEM_READ_ONLY,  N * sizeof(float),  NULL,  NULL);
-    cl_mem buf_c = clCreateBuffer(context,  CL_MEM_WRITE_ONLY,  N * sizeof(float),  NULL,  NULL);
-    
-    // 6. 写入数据
-    clEnqueueWriteBuffer(queue,  buf_a,  CL_TRUE,  0,  N * sizeof(float),  a,  0,  NULL,  NULL);
-    clEnqueueWriteBuffer(queue,  buf_b,  CL_TRUE,  0,  N * sizeof(float),  b,  0,  NULL,  NULL);
-    
-    // 7. 设置 Kernel 参数
-    clSetKernelArg(kernel,  0,  sizeof(cl_mem),  &buf_a);
-    clSetKernelArg(kernel,  1,  sizeof(cl_mem),  &buf_b);
-    clSetKernelArg(kernel,  2,  sizeof(cl_mem),  &buf_c);
-    clSetKernelArg(kernel,  3,  sizeof(unsigned int),  &N);
-    
-    // 8. 执行 Kernel
-    size_t global_work_size = N;
-    clEnqueueNDRangeKernel(queue,  kernel,  1,  NULL,  &global_work_size,  NULL,  0,  NULL,  NULL);
-    
-    // 9. 读取结果
-    clEnqueueReadBuffer(queue,  buf_c,  CL_TRUE,  0,  N * sizeof(float),  c,  0,  NULL,  NULL);
-    
-    // 10. 验证结果
-    for (int i = 0; i < 10; i++) {
-        printf("c[%d] = %f (expected %f)\n",  i,  c[i],  a[i] + b[i]);
-    }
-    
-    // 11. 清理资源
-    clReleaseMemObject(buf_a);
-    clReleaseMemObject(buf_b);
-    clReleaseMemObject(buf_c);
-    clReleaseKernel(kernel);
-    clReleaseProgram(program);
-    clReleaseCommandQueue(queue);
-    clReleaseContext(context);
-    free(a); free(b); free(c); free(source_str);
-    
-    return 0;
-}
+即便是最小例子，Host 侧也要完整走一遍：
+
+1. 枚举 platform 和 device。
+2. 创建 context 和 command queue。
+3. 读取 `.cl` 源码并 build。
+4. 创建 buffer。
+5. 设置 kernel 参数。
+6. enqueue kernel。
+7. 读回结果。
+
+这一步真正的目标不是追求性能，而是把 OpenCL 的运行链路跑通。
+
+## 4. 第二阶段: 从 vector add 迁移到 GEMM
+
+等最小 demo 稳定后，再把问题升级到 GEMM 会自然很多。
+
+你会新增三类复杂度：
+
+### 4.1 索引从一维变二维
+
+你要从：
+
+```text
+id
 ```
 
-## 4. 编译运行
+变成：
 
-```bash
-# Linux
-gcc main.c -o vector_add -lOpenCL
-./vector_add
-
-# 输出
-# c[0] = 0.000000 (expected 0.000000)
-# c[1] = 3.000000 (expected 3.000000)
-# c[2] = 6.000000 (expected 6.000000)
-# ...
+```text
+row, col
 ```
 
-## 5. 代码解析
+### 4.2 每个 work-item 不再只做一次加法
 
-### 5.1 平台和设备
+而是要做一段长度为 `K` 的累加。
 
-| 函数 | 说明 |
-|------|------|
-| `clGetPlatformIDs` | 获取可用平台 |
-| `clGetDeviceIDs` | 获取设备 |
-| `clGetDeviceInfo` | 获取设备信息 |
+### 4.3 访存会成为主要问题
 
-### 5.2 上下文和队列
+朴素 GEMM 的性能瓶颈几乎一定落在 global memory 访问上，所以后面必须引入：
 
-| 函数 | 说明 |
-|------|------|
-| `clCreateContext` | 创建上下文 |
-| `clCreateCommandQueue` | 创建命令队列 |
-| `clReleaseContext` | 释放上下文 |
-| `clReleaseCommandQueue` | 释放命令队列 |
+- `local memory`
+- `tiling`
+- `barrier`
 
-### 5.3 程序和 Kernel
+## 5. GEMM 版本你应该怎么分阶段写
 
-| 函数 | 说明 |
-|------|------|
-| `clCreateProgramWithSource` | 从源码创建程序 |
-| `clBuildProgram` | 编译程序 |
-| `clCreateKernel` | 创建 Kernel |
-| `clSetKernelArg` | 设置 Kernel 参数 |
+我建议按下面顺序写，而不是一步到位：
 
-### 5.4 内存对象
+1. 先写最朴素二维 GEMM。
+2. 先确保结果正确。
+3. 再做 `local memory` 分块。
+4. 最后再做向量化和参数调优。
 
-| 函数 | 说明 |
-|------|------|
-| `clCreateBuffer` | 创建缓冲区 |
-| `clEnqueueWriteBuffer` | 写入数据 |
-| `clEnqueueReadBuffer` | 读取数据 |
-| `clReleaseMemObject` | 释放内存 |
+这样你每次只改一个层次，问题更容易定位。
 
-### 5.5 执行
+## 6. 如何判断自己已经过了“入门关”
 
-| 函数 | 说明 |
-|------|------|
-| `clEnqueueNDRangeKernel` | 执行 Kernel |
-| `clFinish` | 等待队列完成 |
+如果你已经能稳定做到下面几件事，就算过了第一关：
 
----
+- 能把 `.cl` 源码编译成功。
+- 能打印 build log 排错。
+- 能用一个最小 kernel 跑出正确结果。
+- 能解释 `global size / local size / work-group` 的关系。
 
-## 参考链接
+这时候再去写 GEMM、卷积、image2d，效率会高很多。
 
-- [OpenCL API 参考](https://www.khronos.org/registry/OpenCL/sdk/3.0/docs/man/html/)
-- [OpenCL 规范](https://www.khronos.org/registry/OpenCL/specs/3.0-unified/html/OpenCL_API.html)
+## 7. 这一篇的结论
 
+OpenCL 的第一套程序，不应该是“最炫的 kernel”，而应该是“最短但完整的一条链”。
+
+先把最小 `vector add` 跑通，再把这条链迁移到 GEMM，你后面做 Android GPU 优化时会稳很多。
