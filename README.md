@@ -1,33 +1,28 @@
 # OPENCL_TUTORIAL
 
-OpenCL (Open Computing Language) 异构计算tutorial，从入门到实战。
+围绕 OpenCL / Android GPU 的中文教程仓库，当前内容已经按 `adb -s 127.0.0.1:40404` 这台真机环境补齐了实测命令。
 
 ## 目录
 
 | 文章 | 说明 | 状态 |
 |------|------|------|
-| [OpenCL 简介](blog/opencl-intro/index.md) | OpenCL 基本概念与架构介绍 | ✅ 完成 |
-| [环境配置](blog/opencl-setup/index.md) | OpenCL 开发环境配置 | ✅ 完成 |
-| [Hello OpenCL](blog/hello-opencl/index.md) | 第一个 OpenCL 程序 | ✅ 完成 |
-| [内存模型](blog/opencl-memory/index.md) | OpenCL 内存模型详解 | 📝 TODO |
-| [Kernel 编程](blog/opencl-kernel/index.md) | Kernel 函数编写 | 📝 TODO |
-| [性能优化](blog/opencl-optimization/index.md) | OpenCL 性能优化技巧 | 📝 TODO |
+| [OpenCL 介绍](blog/opencl-intro/index.md) | 梳理 `Platform` / `Device` / `NDRange` / 内存模型与 Host 调用流程 | ✅ 完成 |
+| [Hello OpenCL](blog/hello-opencl/index.md) | 用最小 `Vector Add` 示例串起 `context`、`program`、`kernel`、`buffer` 和执行链路，并给出 Adreno 830 实测输出 | ✅ 完成 |
+| [Qualcomm OpenCL](blog/opencl-qualcomm/index.md) | 基于 Qualcomm 官方文档整理 `Adreno` 上的 OpenCL 架构与优化要点 | 🚧 TODO |
+| [MNN OpenCL MatMul](blog/mnn-opencl-matmul-buf/index.md) | 解释 `matmul_buf.cl` 的计算映射，以及 Host 侧 `.cpp` / `_mnn_cl.cpp` 的分工 | 🚧 TODO |
 
-## 代码示例
+## 仓库结构
 
-所有示例代码在 `code/` 目录下：
-
-```
-code/
-├── hello_opencl/       # Hello OpenCL 示例
-├── vector_add/         # 向量加法示例
-├── matrix_mul/         # 矩阵乘法示例
-└── image_process/      # 图像处理示例
+```text
+blog/
+├── opencl-intro/      # 概念与执行模型
+├── hello-opencl/      # 文章 + 最小可编译示例
+├── opencl-qualcomm/   # draft: Qualcomm / Adreno OpenCL 架构与优化
+└── mnn-opencl-matmul-buf/ # draft: MNN OpenCL MatMul kernel 解析
 ```
 
 ## 参考资源
 
-- [OpenCL 官方文档](https://www.khronos.org/opencl/)
-- [Intel OpenCL SDK](https://www.intel.com/content/www/us/en/developer/tools/opencl-sdk/overview.html)
-- [NVIDIA CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit)
-
+- [Khronos OpenCL Overview](https://www.khronos.org/opencl/)
+- [Khronos OpenCL API Registry](https://registry.khronos.org/OpenCL/)
+- Android 设备上的 `libOpenCL.so` 一般来自 GPU 厂商运行时，需要结合具体 SoC / ROM 确认路径和可用性。

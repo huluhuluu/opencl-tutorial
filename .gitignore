@@ -1,3 +1,4 @@
 build
 OpenCL-Headers
 .vscode
+.clangd

@@ -30,6 +30,7 @@ sudo apt install build-essential cmake -y
 # 安装 OpenCL 头文件
 # 这里不建议使用apt install opencl-headers 安装头文件
 # 因为这个头文件会安装到系统目录/usr/include/CL/cl.h，交叉编译可能冲突
+# 这里目录位置需要自己设置对应好
 git clone https://github.com/KhronosGroup/OpenCL-Headers.git
 
 # 获取目标设备的动态库
@@ -55,7 +56,7 @@ adb -s 127.0.0.1:40404 pull /vendor/lib64/libOpenCL.so OpenCL-Headers/
 ```
 ### 2.1 初始化
 
-`opencl_vector_add.cpp` 里首先做的是平台和设备选择。代码会优先选 `GPU`，如果拿不到，再回退到 `DEFAULT` 或 `CPU`。
+首先做的是获取平台和设备，然后完成运行环境的构建。
 
 核心流程是：
 ```cpp
@@ -86,10 +87,9 @@ __kernel void vector_add(
 ```
 接着在代码中编译这个`kernel`:
 ```cpp
-clCreateProgramWithSource(context.get(), 1, &sourcePtr, &bytes, &status); // 构建 program
+clCreateProgramWithSource(context.get(), 1, &sourcePtr, &bytes, &status); // 创建 program
 clBuildProgram(program.get(), 1, &selection.device, nullptr, nullptr, nullptr); // build program
 clCreateKernel(program.get(), "vector_add", &status); // 获取 kernel
-
 ```
 
 ### 2.3 Buffer、参数绑定与执行
