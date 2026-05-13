@@ -16,9 +16,24 @@
 ```text
 blog/
 ├── opencl-intro/      # 概念与执行模型
-├── hello-opencl/      # 文章 + 最小可编译示例
+├── hello-opencl/      # 文章 + 示例源码
 ├── opencl-qualcomm/   # draft: Qualcomm / Adreno OpenCL 架构与优化
 └── mnn-opencl-matmul-buf/ # draft: MNN OpenCL MatMul kernel 解析
+```
+
+## 构建
+
+在仓库根目录直接生成 `build/`，不需要再把 `blog/hello-opencl` 当成单独的 CMake 工程：
+
+```bash
+cmake -S . -B build \
+  -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake" \
+  -DANDROID_ABI=arm64-v8a \
+  -DANDROID_PLATFORM=android-29 \
+  -DOPENCL_INCLUDE_DIR="$PWD/OpenCL-Headers" \
+  -DOPENCL_LIBRARY="$PWD/OpenCL-Headers/libOpenCL.so"
+
+cmake --build build -j4 --target opencl_vector_add
 ```
 
 ## 参考资源

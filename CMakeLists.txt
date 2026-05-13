@@ -7,10 +7,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(OpenCL QUIET)
 
-add_executable(opencl_vector_add opencl_vector_add.cpp)
+add_executable(opencl_vector_add blog/hello-opencl/opencl_vector_add.cpp)
 target_compile_definitions(
   opencl_vector_add
-  PRIVATE OPENCL_TUTORIAL_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+  PRIVATE OPENCL_TUTORIAL_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/blog/hello-opencl")
 
 if(OpenCL_FOUND)
   target_link_libraries(opencl_vector_add PRIVATE OpenCL::OpenCL)
@@ -42,5 +42,5 @@ add_custom_command(
   POST_BUILD
   COMMAND
     ${CMAKE_COMMAND} -E copy_if_different
-    "${CMAKE_CURRENT_SOURCE_DIR}/vector_add.cl"
+    "${CMAKE_CURRENT_SOURCE_DIR}/blog/hello-opencl/vector_add.cl"
     "$<TARGET_FILE_DIR:opencl_vector_add>/vector_add.cl")

@@ -19,30 +19,24 @@ math: true
 
 高通的`Soc`里集成的`GPU`是`Adreno GPU`，其的架构设计围绕着高效的并行计算和内存访问展开，如图
 ![Adreno GPU OpenCL 高层架构图](./png/adreno-opencl-architecture.png)
-*图 1. Adreno GPU 在 `OpenCL` 场景下的高层架构：`SP` 通过 `L2 cache` 访问 `buffer` 和系统内存，只读 `image` 读取会经过 `TP/L1` 路径。*
+*图 1. Adreno GPU 在 `OpenCL` 场景下的高层架构*
 
 架构图中核心的组件包括：
 - `SP`：`Shader Processor`(流式处理器)，是执行 `OpenCL kernel` 的核心计算块，里面有 `ALU`、寄存器、访存单元、控制流单元等。
 - `TP/L1`：纹理处理与**只读** `L1 cache` 路径。
 - `L2 cache`：缓冲区读写、image 写入等。
 
-### 1.1 fiber、wave
+其底层硬件命名对应`OpenCL`的关系如下：
 
-高通的底层硬件命名对应关系如下：
-
-```text
-执行work-item的Procession Elements  ~= fiber
-执行subgroup的Compute Unit ~= wave
-```
+- 执行work-item的 Procession Elements  ~= fiber
+- 执行subgroup的 Compute Unit ~= wave
 
 其中：
 - `wave size` 不是固定常数，它和 `Adreno` 代际、档位以及编译结果有关。
 - 对某个已经编译好的 kernel，`wave size` 是固定的。
 - `SP` 可以同时容纳多个活跃 `wave`，不同`wave` 相互独立
-
-### 1.2 特性
-- 高优先级会抢占`GPU`,这一步的上下文切换代价很大，最好避免频繁发生。
-- 长时间的内核计算会导致`GPU`重启，内核的执行时间最好控制在几十毫秒以内。
+- 高优先级会**抢占`GPU`**, 带来的上下文切换代价很大
+- 长时间的内核计算会**导致`GPU`重启**，内核的执行时间最好控制在几十毫秒以内。
 
 ## 2. 优化
 
@@ -258,25 +252,8 @@ Qualcomm 文档对内存生命周期说得很明确：
 
 所以不要把“上一个 kernel 写到 local 里，下一个 kernel 接着读”当成可用模型。跨 kernel 传数据，还是得回到 global memory objects。
 
-## 3. 一个更实用的排查顺序
-
-如果你现在已经有一个 `Adreno` 上能跑的 OpenCL kernel，排查顺序建议是：
-
-1. 先判断瓶颈是 `memory-bound` 还是 `ALU-bound`。
-2. 如果偏内存瓶颈，优先试 `image`、`vload4/vstore4`、连续访问、`FP16` 存储、`constant/local` 重排。
-3. 如果偏计算瓶颈，优先试 `FP16`、`fast math`、`native_*`、减少分支和控制流。
-4. 每做一轮改动，都重新调 `work-group size/shape`。
-5. Host 侧避免阻塞和重复 build，别让 CPU 把 GPU 发射节奏拖慢。
-6. 不要把一台 `Adreno` 上的最优参数直接当成“所有设备通吃”的常数。
-
-如果手头有 `Snapdragon Profiler` 或等价工具，优先把 kernel 时间、Host API stalls、缓存压力这几类指标先看明白，再决定调优方向。
 
 ## 4. 参考资料
 
 - [Qualcomm OpenCL General Programming and Optimization](https://docs.qualcomm.com/doc/80-NB295-11/80-NB295-11_REV_C_Qualcomm_Snapdragon_Mobile_Platform_Opencl_General_Programming_and_Optimization.pdf)
-- [OpenCL API Specification](https://registry.khronos.org/OpenCL/specs/)
-
-## 7. 参考资料
-
-- [Qualcomm Snapdragon Mobile Platform OpenCL General Programming and Optimization](https://docs.qualcomm.com/doc/80-NB295-11/80-NB295-11_REV_C_Qualcomm_Snapdragon_Mobile_Platform_Opencl_General_Programming_and_Optimization.pdf)
 - [OpenCL API Specification](https://registry.khronos.org/OpenCL/specs/)

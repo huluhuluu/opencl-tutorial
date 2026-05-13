@@ -77,7 +77,7 @@ math: true
 
 在 Android 场景里，常见的情况是：
 - `Host` 代码跑在 CPU 上，负责准备输入数据、创建 OpenCL 对象、提交命令和读取输出结果。
-- 运行时来自厂商提供的 `libOpenCL.so`。
+- 运行时来自厂商提供的 `libOpenCL.so`，例如`SnapDragon 8 elite`的`/vendor/lib64/libOpenCL.so`
 - `Device` 是手机上的 `Adreno` 或 `Mali` GPU，是真正执行 kernel 的设备
 
 ## 4. OpenCL 执行模型
@@ -93,30 +93,18 @@ math: true
 ![OpenCL 执行模型图](./png/opencl-execution-model.png)
 *图 4. OpenCL 执行模型中 `NDRange`、`work-item` 和 `work-group` 的关系示意。*
 
-从硬件角度看，处理器通常不会把所有处理元件平铺成一个大集合，而是会先把它们组织成一个个 `compute unit`。这样可以提高调度效率和资源利用率，例如设计局部共享资源。因此，在调用 `clEnqueueNDRangeKernel` 时，除了指定整个 `NDRange` 的范围，程序通常还会指定 `work-group size`，也就是把一批连续的 `work-item` 分成一个组。
-
-可以把这几个概念先对应起来：
+从硬件角度看，处理器通常不会把所有处理元件平铺成一个大集合，而是会先把它们组织成一个个 `compute unit`。这样可以提高调度效率和资源利用率，设计局部共享资源。因此，`OpenCL`把一批连续的 `work-item` 分成一个组:
 
 - `work-item`：最小执行单位，对应一次 `kernel` 副本
-- `work-group`：一组可以协同工作的 `work-item`
+- `work-group`：一组可以协同工作的 `work-item`，大小是`work-group size`
 - `compute unit`：设备上负责调度和执行一个或多个 `work-group` 的硬件执行单元
 
-把 `work-item` 组织成 `work-group` 可以让同一组里的执行实例可以更高效地合作，同一个 `work-group` 内的 `work-item` 具备：
+同一个 `work-group` 内的 `work-item` 具备：
 - 共享 `local memory`
 - 通过 `work-group barrier` 做组内同步
 - 使用 `async_work_group_copy` 这类 `work-group` 级函数高效搬运数据
-
-这些能力在不同 `work-group` 之间通常没有，因此：
-
-- 同一个 `work-group` 更适合处理彼此相关、需要共享中间数据的任务
-- 不同 `work-group` 之间更像相互独立的批次，通常通过 `global memory` 间接通信，不能像组内那样直接同步
-
-所以，这套模型是：先定义数据空间，再把空间里的每个元素映射成 `work-item`，最后根据硬件特性决定 `work-group size`，让组内共享内存和同步机制真正发挥作用：
-```text
-NDRange 决定总共有多少个 work-item
--> work-group 决定这些 work-item 怎样分组
--> compute unit 决定这些 work-group 最终怎样被硬件调度执行
-```
+  
+而不同 `work-group` 之间更加独立，通常通过 `global memory` 间接通信。所以，opencl先定义数据空间，再把空间里的每个元素映射成 `work-item`，最后根据硬件特性决定 `work-group size`。 
 
 例如一个三维数据大小是 `(2, 2, 8)`，按照 `(2, 2, 2)` 的 `work-group size` 来执行，那么就会有 4 个 `work-group`，每个 `work-group` 里有 8 个 `work-item`，总共 32 个 `work-item` 来处理这 32 个数据元素。
 ![OpenCL 工作组切分示意图](./png/opencl-workgroup-partition-example.png)

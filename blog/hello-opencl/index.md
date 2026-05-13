@@ -20,7 +20,7 @@ math: true
 - version：`OpenCL 3.0 Adreno(TM) 830`
 
 ## 1. 环境配置
-宿主机需要编译环境，依赖`c/cpp`编译环境 + `Opencl头文件` + 目标设备的动态库`libOpenCL.so`：
+宿主机需要编译环境，依赖`c/cpp`编译环境 + `Opencl头文件` + 目标设备的动态库`libOpenCL.so` + `Android`交叉编译环境：
 
 ```bash
 # 安装编译环境
@@ -30,13 +30,63 @@ sudo apt install build-essential cmake -y
 # 安装 OpenCL 头文件
 # 这里不建议使用apt install opencl-headers 安装头文件
 # 因为这个头文件会安装到系统目录/usr/include/CL/cl.h，交叉编译可能冲突
-# 这里目录位置需要自己设置对应好
-git clone https://github.com/KhronosGroup/OpenCL-Headers.git
+# 这里把 OpenCL-Headers 放到仓库里作为 submodule 管理
+git submodule add https://github.com/KhronosGroup/OpenCL-Headers.git OpenCL-Headers
+git submodule update --init --recursive
+# 也可以直接克隆仓库 
+# git clone https://github.com/KhronosGroup/OpenCL-Headers.git
 
 # 获取目标设备的动态库
 adb -s 127.0.0.1:40404 pull /vendor/lib64/libOpenCL.so OpenCL-Headers/
 
 ```
+### 1.1 Android 交叉编译环境配置
+
+如果还没有配置过 Android 交叉编译环境，需要先安装 Android NDK，配置环境变量。下面是一个示例流程：
+
+- 步骤1：下载最新版软件包，[获取地址](https://developer.android.google.cn/ndk/downloads?hl=zh-cn)（选择对应平台最新稳定版，点击后出现 “Android 软件开发套件许可协议”，勾选后鼠标右键下载按钮可以复制下载链接）
+
+  ```bash
+  # 服务器端运行
+  # 到指定目录下载并解压 `android_ndk`
+  cd ~ && mkdir android_ndk && cd ~/android_ndk
+  wget https://googledownloads.cn/android/repository/android-ndk-r29-linux.zip
+  unzip android-ndk-r29-linux.zip # 这个文件名和下载的版本有关
+  # 删除压缩包
+  rm android-ndk-r29-linux.zip # 这个文件名和下载的版本有关
+
+  # 进入并记住解压后的目录
+  # 在目录里用 `pwd` 命令可以获取绝对路径
+  cd android-ndk-r29 # 这个目录和下载的版本有关，可以通过 `ls -lah` 显示目录
+  ```
+
+- 步骤2：配置环境变量
+
+  ```bash
+  # 服务器端运行
+  # 通常会配置 `ANDROID_NDK_ROOT` 环境变量
+  # 但 `MNN` 中在 `project/android/build_64.sh` 使用的是 `$ANDROID_NDK` 环境变量，所以都设置一下
+  ➜ export ANDROID_NDK="$HOME/android_ndk/android-ndk-r29" # 环境变量
+  ➜ $ANDROID_NDK/ndk-build --version  # 验证环境变量
+  GNU Make 4.3
+  Built for x86_64-pc-linux-gnu
+  Copyright (C) 1988-2020 Free Software Foundation,  Inc.
+  License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+  This is free software: you are free to change and redistribute it.
+  There is NO WARRANTY,  to the extent permitted by law.
+
+  # 在命令行单次export只会在当前命令行有效 新开的终端不生效
+  # 需要把环境变量写到 `shell` 的配置文件中，`bash` 对应 `~/.bashrc`，`zsh` 对应 `~/.zshrc`
+  # !!注意这里重定向是重定向文件末尾 '>>' 符号
+  echo 'export ANDROID_NDK="$HOME/android_ndk/android-ndk-r29"' >> ~/.zshrc # 环境变量
+  echo 'export ANDROID_NDK_ROOT="$HOME/android_ndk/android-ndk-r29"'  >> ~/.zshrc # 环境变量
+  echo 'export PATH="$ANDROID_NDK:$PATH"' >> ~/.zshrc
+  # 验证
+  ➜  ndk-build
+  Android NDK: Could not find application project directory !
+  Android NDK: Please define the NDK_PROJECT_PATH variable to point to it.
+  /root/android_ndk/android-ndk-r29/build/core/build-local.mk:151: *** Android NDK: Aborting    .  Stop.
+  ```
 
 ## 2. 执行流程
 
@@ -131,14 +181,14 @@ clFinish(queue.get());
 要在`Android`上运行需要拉取目标设备的动态库，宿主机编译命令如下：
 
 ```bash
-cmake -S blog/hello-opencl -B build/hello-opencl-android \
+cmake -S . -B build \
   -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI=arm64-v8a \
   -DANDROID_PLATFORM=android-29 \
   -DOPENCL_INCLUDE_DIR="$PWD/OpenCL-Headers" \
   -DOPENCL_LIBRARY="$PWD/OpenCL-Headers/libOpenCL.so"
 
-cmake --build build/hello-opencl-android -j4 --target opencl_vector_add
+cmake --build build -j4 --target opencl_vector_add
 ```
 
 支持额外参数：
@@ -152,8 +202,8 @@ export OPENCL_DEMO_DIR=/data/local/tmp/opencl_vector_add
 
 adb -s 127.0.0.1:40404 shell "mkdir -p $OPENCL_DEMO_DIR"
 adb -s 127.0.0.1:40404 push \
-  build/hello-opencl-android/opencl_vector_add \
-  build/hello-opencl-android/vector_add.cl \
+  build/opencl_vector_add \
+  build/vector_add.cl \
   /tmp/opencl-android/lib/arm64-v8a/libOpenCL.so \
   "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" \
   "$OPENCL_DEMO_DIR/"
